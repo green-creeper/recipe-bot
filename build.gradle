@@ -1,0 +1,51 @@
+plugins {
+    id 'org.hidetake.ssh' version '2.7.0'
+    id 'java'
+}
+
+group 'com.greenreeper'
+version '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.11'
+    compile 'org.mongodb:mongodb-driver:3.3.0'
+    compile 'com.fasterxml.jackson.core:jackson-core:2.8.4'
+    compile 'com.fasterxml.jackson.core:jackson-databind:2.8.4'
+    compile 'org.telegram:telegrambots:2.4.0'
+    compile 'com.typesafe:config:1.3.1'
+    compile 'com.google.inject:guice:4.1.0'
+}
+
+remotes {
+    webServer {
+        host = 'DEPLOY_URL'
+        user = 'USER'
+        identity = file('PATH/TO/RSA_KEY')
+    }
+}
+
+task deploy << {
+    ssh.run {
+        session(remotes.webServer) {
+            execute 'sh recipebot/botstop.sh'
+            put from: 'build/libs/'+project.name + '-fat-'+version+'.jar', into: 'recipebot/recipebot.jar'
+            execute 'sh recipebot/botstart.sh'
+        }
+    }
+}
+
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Gradle Jar File Example',
+                'Implementation-Version': version,
+                'Main-Class': 'com.greencreeper.recipebot.Main'
+    }
+    baseName = project.name + '-fat'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
+    with jar
+}
+
