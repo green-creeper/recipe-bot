@@ -1,0 +1,1 @@
+{"options":{},"indexes":[{"v":1,"key":{"_id":1},"name":"_id_","ns":"recipeBot.recipes"},{"v":1,"key":{"_fts":"text","_ftsx":1},"name":"ingredients.name_text","ns":"recipeBot.recipes","default_language":"russian","weights":{"ingredients.name":1},"language_override":"language","textIndexVersion":3}]}
