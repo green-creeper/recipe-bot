@@ -2,6 +2,8 @@
 
 Telegram Bot for searching recipes by ingredients
 
+Full tutorial is in my blog http://www.green-creeper.com/?tag=bot
+
 you can perform search by list of ingridients, space or comma separated.
 As result, bot sends one recipe. It's possible to exclude one of ingridients in result tapping appropriate button.
 While ingridient is excluded - bot finds new recipe.
