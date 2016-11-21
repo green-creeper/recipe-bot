@@ -1,6 +1,7 @@
 package com.greencreeper.recipebot;
 
 
+import com.brsanthu.googleanalytics.*;
 import com.google.inject.Inject;
 import com.greencreeper.recipebot.models.Ingredient;
 import com.greencreeper.recipebot.models.Recipe;
@@ -31,16 +32,17 @@ public class RecipeBot extends TelegramLongPollingBot{
 
     private BotConfig config;
     private MongoStorage mongo;
+    private GoogleAnalytics analytics;
 
     @Inject
     public RecipeBot(BotConfig config, MongoStorage mongo){
         this.config = config;
         this.mongo = mongo;
+        analytics = new GoogleAnalytics(config.getTrackingCode());
     }
 
     @Override
     public void onUpdateReceived(Update update) {
-
         if(update.hasCallbackQuery()){
             CallbackQuery query = update.getCallbackQuery();
             Session session = mongo.getSessionStorage()
@@ -52,6 +54,7 @@ public class RecipeBot extends TelegramLongPollingBot{
             session.setRequest(msg);
             mongo.getSessionStorage().storeSession(session);
             processMessage(msg, query.getMessage().getChatId().toString());
+            analytics.postAsync(new EventHit("button", "remove-ingridient").clientId(query.getMessage().getChatId().toString()));
         }
 
         if(update.hasMessage()){
@@ -64,31 +67,35 @@ public class RecipeBot extends TelegramLongPollingBot{
                     StringBuilder sb = new StringBuilder();
                     sb.append("Привет ").append(message.getFrom().getFirstName())
                             .append("\n @").append(config.getBotUsername())
-                            .append(" позволяет искать рецепты по ингридиентам которые есть в Вашем холодильнике. \n ")
+                            .append(" позволяет искать рецепты по ингредиентам которые есть в Вашем холодильнике. \n ")
                             .append("Чтобы узнать подробнее введите /help");
 
                     sendResponse(sb.toString() , message.getChatId().toString());
+                    analytics.postAsync(new PageViewHit(START_COMMAND,"Start Bot").clientId(message.getChatId().toString()));
 
                 } else if(command.equalsIgnoreCase(HELP_COMMAND)){
-                    sendResponse("Просто введите список ингридиентов \n\n" +
+                    sendResponse("Просто введите список ингредиентов \n\n" +
                             "Например: \n" +
                             "капуста свекла картофель \n \n"+
-                            "Если в полученном ответе есть ингридиенты которых у вас нет, вы можете исключить их, " +
-                            "нажав на кнопку с названием отсутсвующего ингридиента. После этого вам будет предложен новый рецепт. \n\n" +
-                            "Так же возможно исключить необходимуй ингридиент во время запроса, для этого нужно добавить '-{ингридиент}' к запросу \n" +
+                            "Если в полученном ответе есть ингредиенты которых у вас нет, вы можете исключить их, " +
+                            "нажав на кнопку с названием отсутсвующего ингредиента. После этого вам будет предложен новый рецепт. \n\n" +
+                            "Так же возможно исключить необходимуй ингредиент во время запроса, для этого нужно добавить '-{ингредиент}' к запросу \n" +
                             "\n Например: \n\n" +
                             "-паприка \n\n" +
                             "Отзывы и пожелания вы можете оставить используя команду /feedback", message.getChatId().toString());
-
+                    analytics.postAsync(new PageViewHit(HELP_COMMAND, "Help").clientId(message.getChatId().toString()));
                 } else if(command.startsWith(RECIPE_COMMAND)){
                     sendRecipe(command.replace(RECIPE_COMMAND+"_", ""), message.getChatId().toString());
+                    analytics.postAsync(new PageViewHit(RECIPE_COMMAND, "View recipe").clientId(message.getChatId().toString()));
                 } else if(command.equalsIgnoreCase(FEEDBACK_COMMAND)){
                     mongo.getFeedbackStorage().saveFeedback(message.getText(), message.getFrom());
                     sendResponse("Отзыв отправлен, спасибо", message.getChatId().toString());
+                    analytics.postAsync(new PageViewHit(FEEDBACK_COMMAND, "Send feedback").clientId(message.getChatId().toString()));
                 }
             }
 
             else if(message.hasText()){
+                analytics.postAsync(new PageViewHit("/search","Search recipe").clientId(message.getChatId().toString()));
                 processMessage(message.getText(), message.getChatId().toString());
             }
         }
@@ -98,6 +105,7 @@ public class RecipeBot extends TelegramLongPollingBot{
         Recipe recipe = mongo.getRecipeStorage().findRecipes(message);
         if(recipe == null){
             sendResponse("Рецептов по запросу не найдено \n\n "+ message +"\n\n /help", chatId);
+            analytics.postAsync(new EventHit("search", "not-round").clientId(chatId));
             return;
         }
         Session s = new Session(chatId, message);
@@ -114,6 +122,7 @@ public class RecipeBot extends TelegramLongPollingBot{
         Recipe r = mongo.getRecipeStorage().getOne(id);
         if(r == null){
             sendResponse("Рецепт не найден", chatId);
+            analytics.postAsync(new EventHit("recipe", "404").clientId(chatId));
             return;
         }
 
@@ -148,6 +157,7 @@ public class RecipeBot extends TelegramLongPollingBot{
         try{
             sendMessage(sendMessageRequest);
         } catch (TelegramApiException e) {
+            analytics.postAsync(new ExceptionHit("Error sending response").clientId(chatID));
             mongo.getFeedbackStorage().saveFeedback(e.toString());
         }
     }
@@ -162,6 +172,7 @@ public class RecipeBot extends TelegramLongPollingBot{
         try{
             sendMessage(sendMessageRequest);
         } catch (TelegramApiException e) {
+            analytics.postAsync(new ExceptionHit("Error sending Keyboard response").clientId(chatID));
             mongo.getFeedbackStorage().saveFeedback(e.toString());
         }
     }
